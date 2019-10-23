@@ -6,6 +6,7 @@ using KeyVault.Acmebot.Internal;
 using Microsoft.Azure.Functions.Extensions.DependencyInjection;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Management.Dns;
+using Microsoft.Azure.Management.FrontDoor;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,16 @@ namespace KeyVault.Acmebot
                 var options = provider.GetRequiredService<IOptions<LetsEncryptOptions>>();
 
                 return new DnsManagementClient(new TokenCredentials(new AppAuthenticationTokenProvider()))
+                {
+                    SubscriptionId = options.Value.SubscriptionId
+                };
+            });
+
+            builder.Services.AddSingleton(provider =>
+            {
+                var options = provider.GetRequiredService<IOptions<LetsEncryptOptions>>();
+
+                return new FrontDoorManagementClient(new TokenCredentials(new AppAuthenticationTokenProvider()))
                 {
                     SubscriptionId = options.Value.SubscriptionId
                 };

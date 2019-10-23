@@ -19,6 +19,7 @@ using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Azure.Management.Dns;
 using Microsoft.Azure.Management.Dns.Models;
+using Microsoft.Azure.Management.FrontDoor;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Options;
 
@@ -28,7 +29,7 @@ namespace KeyVault.Acmebot
     {
         public SharedFunctions(IHttpClientFactory httpClientFactory, LookupClient lookupClient,
                                IAcmeProtocolClientFactory acmeProtocolClientFactory, IOptions<LetsEncryptOptions> options,
-                               KeyVaultClient keyVaultClient, DnsManagementClient dnsManagementClient)
+                               KeyVaultClient keyVaultClient, DnsManagementClient dnsManagementClient, FrontDoorManagementClient frontDoorManagementClient)
         {
             _httpClientFactory = httpClientFactory;
             _lookupClient = lookupClient;
@@ -36,6 +37,7 @@ namespace KeyVault.Acmebot
             _options = options.Value;
             _keyVaultClient = keyVaultClient;
             _dnsManagementClient = dnsManagementClient;
+            _frontDoorManagementClient = frontDoorManagementClient;
         }
 
         private const string InstanceIdKey = "InstanceId";
@@ -46,6 +48,7 @@ namespace KeyVault.Acmebot
         private readonly LetsEncryptOptions _options;
         private readonly KeyVaultClient _keyVaultClient;
         private readonly DnsManagementClient _dnsManagementClient;
+        private readonly FrontDoorManagementClient _frontDoorManagementClient;
 
         [FunctionName(nameof(IssueCertificate))]
         public async Task IssueCertificate([OrchestrationTrigger] DurableOrchestrationContext context)
