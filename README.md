@@ -39,7 +39,7 @@ Use Key Vault for secure and centralized management of Let's Encrypt certificate
 
 ### 1. Deploy to Azure Functions
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshibayan%2Fkeyvault-acmebot%2Fmaster%2Fazuredeploy.json" target="_blank">
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fcloudfieldcz%2Fazure-acmebot%2Fmaster%2Fazuredeploy.json" target="_blank">
   <img src="https://azuredeploy.net/deploybutton.png" />
 </a>
 
