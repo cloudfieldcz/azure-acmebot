@@ -8,7 +8,10 @@ using KeyVault.Acmebot.Models;
 
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Azure.Management.Dns.Models;
+using Microsoft.Azure.Management.FrontDoor.Models;
+using Microsoft.Azure.Management.ResourceManager.Models;
 using Microsoft.Azure.WebJobs;
+using Microsoft.Rest.Azure;
 
 namespace KeyVault.Acmebot.Contracts
 {
@@ -17,6 +20,8 @@ namespace KeyVault.Acmebot.Contracts
         Task<IList<CertificateBundle>> GetCertificates(DateTime currentDateTime);
 
         Task<IList<Zone>> GetZones(object input = null);
+
+        Task<List<AzureFrontDoor>> GetAllFDoors(object input = null);
 
         Task<OrderDetails> Order(string[] hostNames);
 

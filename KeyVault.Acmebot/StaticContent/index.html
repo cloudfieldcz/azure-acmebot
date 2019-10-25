@@ -1,5 +1,4 @@
-﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -26,6 +25,23 @@
                                     <select v-model="zoneName" v-on:change="reset">
                                         <option disabled value="">Please select one</option>
                                         <option v-for="zone in zones" :value="zone">{{ zone }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="field is-horizontal">
+                    <div class="field-label">
+                        <label class="label">Front Door</label>
+                    </div>
+                    <div class="field-body">
+                        <div class="field">
+                            <div class="control">
+                                <div class="select" v-bind:class="{ 'is-loading': loading }">
+                                    <select v-model="frontdoorName" v-on:change="resetFD">
+                                        <option disabled value="">Please select one</option>
+                                        <option v-for="frontdoor in frontdoors" :value="frontdoor">{{ frontdoor }}</option>
                                     </select>
                                 </div>
                             </div>
@@ -86,6 +102,7 @@
       data: {
         zones: [],
         frontdoors: [],
+        frontdoorsRaw: [],
         zoneName: "",
         frontdoorName: "",
         domains: [],
@@ -107,11 +124,26 @@
             alert(error);
           }
 
+          try {
+            const response = await axios.get("/api/get-frontdoors");
+
+            if (response.status === 200) {
+                this.$set(this, "frontdoorsRaw", response.data);
+                this.frontdoors = [];
+                this.frontdoorsRaw.forEach((value, index) => {
+                    this.frontdoors.push(value.Name);
+                });
+            }
+          } catch (error) {
+            alert(error);
+          }
+
           this.loading = false;
         },
         reload: function () {
           this.zones = [];
           this.frontdoors = [];
+          this.frontdoorsRaw = [];
           this.zoneName = "";
           this.frontdoorName = "";
           this.domains = [];
@@ -123,7 +155,6 @@
           if (this.zoneName === "") {
             return;
           }
-
           if (this.frontdoorName === "") {
             return;
           }
@@ -143,7 +174,25 @@
           this.domains = [];
           this.recordName = "";
         },
+        resetFD: function (event) {
+            this.frontdoorsRaw.forEach((value, index) => {
+                if (event.target.value == value.Name) {
+                    value.Hostnames.forEach((value2, index) => {
+                        if (this.zoneName == value2 || value2.endsWith("." + this.zoneName)) {
+                          if (this.domains.indexOf(value2) === -1) {
+                            this.domains.push(value2);
+                          }
+                        }
+                    });
+                    return;
+                }
+            });
+        },
         submit: async function () {
+          if (this.frontdoorName === "") {
+            alert("No Front Door selected");
+          }
+
           if (this.domains.length === 0) {
             alert("At least one domain is required");
             return;
@@ -151,8 +200,8 @@
 
           this.sending = true;
 
-          try {
-            await axios.post("/api/add-certificate", { Domains: this.domains });
+            try {
+                await axios.post("/api/add-certificate", { Domains: this.domains, FrontDoor: this.frontdoorName });
 
             alert("The certificate was successfully issued");
 
