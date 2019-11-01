@@ -9,5 +9,6 @@
         public string VaultBaseUrl { get; set; }
 
         public string Webhook { get; set; }
+        public string KeyVaultId { get; set; }
     }
 }

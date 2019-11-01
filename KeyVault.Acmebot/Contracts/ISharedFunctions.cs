@@ -37,6 +37,6 @@ namespace KeyVault.Acmebot.Contracts
 
         Task AnswerChallenges(IList<ChallengeResult> challenges);
 
-        Task FinalizeOrder((string[], OrderDetails) input);
+        Task FinalizeOrder((string[], OrderDetails, string) input);
     }
 }

@@ -31,8 +31,13 @@ namespace KeyVault.Acmebot
                 return req.CreateErrorResponse(HttpStatusCode.BadRequest, $"{nameof(request.Domains)} is empty.");
             }
 
+            if (request?.FrontDoor == null || request.FrontDoor.Length == 0)
+            {
+                return req.CreateErrorResponse(HttpStatusCode.BadRequest, $"{nameof(request.FrontDoor)} is empty.");
+            }
+
             // Function input comes from the request content.
-            var instanceId = await starter.StartNewAsync(nameof(SharedFunctions.IssueCertificate), request.Domains);
+            var instanceId = await starter.StartNewAsync(nameof(SharedFunctions.IssueCertificate), (request.Domains, request.FrontDoor));
 
             log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
 

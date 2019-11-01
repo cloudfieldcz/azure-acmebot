@@ -30,8 +30,14 @@ namespace KeyVault.Acmebot
             {
                 log.LogInformation($"{certificate.Id} - {certificate.Attributes.Expires}");
 
+                string frontdoorName = "";
+                if (certificate.Tags.ContainsKey("FrontDoor"))
+                {
+                    frontdoorName = certificate.Tags["FrontDoor"];
+                }
+
                 // 証明書の更新処理を開始
-                await context.CallSubOrchestratorAsync(nameof(SharedFunctions.IssueCertificate), certificate.Policy.X509CertificateProperties.SubjectAlternativeNames.DnsNames);
+                await context.CallSubOrchestratorAsync(nameof(SharedFunctions.IssueCertificate), (certificate.Policy.X509CertificateProperties.SubjectAlternativeNames.DnsNames, frontdoorName));
             }
         }
 

@@ -62,7 +62,7 @@ namespace KeyVault.Acmebot
         [FunctionName(nameof(IssueCertificate))]
         public async Task IssueCertificate([OrchestrationTrigger] DurableOrchestrationContext context)
         {
-            var dnsNames = context.GetInput<string[]>();
+            var (dnsNames, frontdoorName) = context.GetInput<(string[], string)>();
 
             var activity = context.CreateActivityProxy<ISharedFunctions>();
 
@@ -92,7 +92,7 @@ namespace KeyVault.Acmebot
             // Order のステータスが ready になるまで 60 秒待機
             await activity.CheckIsReady(orderDetails);
 
-            await activity.FinalizeOrder((dnsNames, orderDetails));
+            await activity.FinalizeOrder((dnsNames, orderDetails, frontdoorName));
         }
 
         [FunctionName(nameof(GetCertificates))]
@@ -290,9 +290,9 @@ namespace KeyVault.Acmebot
         }
 
         [FunctionName(nameof(FinalizeOrder))]
-        public async Task FinalizeOrder([ActivityTrigger] (string[], OrderDetails) input)
+        public async Task FinalizeOrder([ActivityTrigger] (string[], OrderDetails, string) input)
         {
-            var (hostNames, orderDetails) = input;
+            var (hostNames, orderDetails, frontdoorName) = input;
 
             var certificateName = hostNames[0].Replace("*", "wildcard").Replace(".", "-");
 
@@ -309,7 +309,8 @@ namespace KeyVault.Acmebot
                     }
                 }, tags: new Dictionary<string, string>
                 {
-                    { "Issuer", "letsencrypt.org" }
+                    { "Issuer", "letsencrypt.org" },
+                    { "FrontDoor", frontdoorName }
                 });
 
                 csr = request.Csr;
@@ -335,7 +336,40 @@ namespace KeyVault.Acmebot
 
             x509Certificates.ImportFromPem(certificateData);
 
-            await _keyVaultClient.MergeCertificateAsync(_options.VaultBaseUrl, certificateName, x509Certificates);
+            var certBundle = await _keyVaultClient.MergeCertificateAsync(_options.VaultBaseUrl, certificateName, x509Certificates);
+
+            // if there is frontdoor set the certificate for each frontdoor host
+            if (frontdoorName != null && frontdoorName.Length > 0)
+            {
+                var page = await _frontDoorManagementClient.FrontDoors.ListAsync();
+                var r = new List<FrontDoorModel>();
+                r.AddRange(page);
+                while (page.NextPageLink != null)
+                {
+                    page = await _frontDoorManagementClient.FrontDoors.ListNextAsync(page.NextPageLink);
+                    r.AddRange(page);
+                }
+                var fd = r.SingleOrDefault(e => e.Name == frontdoorName);
+
+                // front door found, apply certificate
+                if (fd != null)
+                {
+                    foreach(var fdh in fd.FrontendEndpoints)
+                    {
+                        if(hostNames.Contains(fdh.HostName))
+                        {
+                            var chc = new CustomHttpsConfiguration();
+                            chc.CertificateSource = "AzureKeyVault";
+                            chc.Vault =
+                                new KeyVaultCertificateSourceParametersVault(_options.KeyVaultId);
+                            chc.SecretName = certBundle.CertificateIdentifier.Name;
+                            chc.SecretVersion = certBundle.CertificateIdentifier.Version;
+                            chc.MinimumTlsVersion = "1.2";
+                            await _frontDoorManagementClient.FrontendEndpoints.BeginEnableHttpsAsync(fd.Id.Split('/')[4], fd.Name, fdh.Name, chc);
+                        }
+                    }
+                }
+            }
         }
 
         private static string ExtractResourceGroup(string resourceId)
