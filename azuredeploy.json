@@ -114,7 +114,7 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "https://shibayan.blob.core.windows.net/azure-keyvault-letsencrypt/latest.zip"
+              "value": "https://cloudfield.blob.core.windows.net/release/acmebot.zip"
             },
             {
               "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -135,6 +135,10 @@
             {
               "name": "LetsEncrypt:VaultBaseUrl",
               "value": "[if(parameters('createWithKeyVault'), concat('https://', variables('functionAppName'), '.vault.azure.net/'), '')]"
+            },
+            {
+              "name": "LetsEncrypt:KeyVaultId",
+              "value": "[if(parameters('createWithKeyVault'), resourceId('Microsoft.KeyVault/vaults', variables('functionAppName')), '')]"
             }
           ],
           "clientAffinityEnabled": false

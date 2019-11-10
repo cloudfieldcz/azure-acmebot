@@ -66,30 +66,29 @@ namespace KeyVault.Acmebot
 
             var activity = context.CreateActivityProxy<ISharedFunctions>();
 
-            // 前提条件をチェック
             await activity.Dns01Precondition(dnsNames);
 
-            // 新しく ACME Order を作成する
+            // ACME Order
             var orderDetails = await activity.Order(dnsNames);
 
-            // 複数の Authorizations を処理する
+            // Authorizations
             var challenges = new List<ChallengeResult>();
 
             foreach (var authorization in orderDetails.Payload.Authorizations)
             {
-                // ACME Challenge を実行
+                // ACME Challenge
                 var result = await activity.Dns01Authorization((authorization, context.ParentInstanceId ?? context.InstanceId));
 
-                // Azure DNS で正しくレコードが引けるか確認
+                // Azure DNS
                 await activity.CheckDnsChallenge(result);
 
                 challenges.Add(result);
             }
 
-            // ACME Answer を実行
+            // ACME Answer
             await activity.AnswerChallenges(challenges);
 
-            // Order のステータスが ready になるまで 60 秒待機
+            // Order ready
             await activity.CheckIsReady(orderDetails);
 
             await activity.FinalizeOrder((dnsNames, orderDetails, frontdoorName));
@@ -294,13 +293,16 @@ namespace KeyVault.Acmebot
         {
             var (hostNames, orderDetails, frontdoorName) = input;
 
-            var certificateName = hostNames[0].Replace("*", "wildcard").Replace(".", "-");
+            // create certificate name
+            var arrNames = hostNames[0].Replace("*", "wildcard").Split('.');
+            Array.Reverse(arrNames);
+            var certificateName = String.Join("-", arrNames);
 
             byte[] csr;
 
             try
             {
-                // Key Vault を使って CSR を作成
+                // Key Vault
                 var request = await _keyVaultClient.CreateCertificateAsync(_options.VaultBaseUrl, certificateName, new CertificatePolicy
                 {
                     X509CertificateProperties = new X509CertificateProperties
@@ -322,7 +324,7 @@ namespace KeyVault.Acmebot
                 csr = Convert.FromBase64String(base64Csr);
             }
 
-            // Order の最終処理を実行し、証明書を作成
+            // Order
             var acmeProtocolClient = await _acmeProtocolClientFactory.CreateClientAsync();
 
             var finalize = await acmeProtocolClient.FinalizeOrderAsync(orderDetails.Payload.Finalize, csr);
@@ -331,7 +333,7 @@ namespace KeyVault.Acmebot
 
             var certificateData = await httpClient.GetByteArrayAsync(finalize.Payload.Certificate);
 
-            // X509Certificate2Collection を作成
+            // X509Certificate2Collection
             var x509Certificates = new X509Certificate2Collection();
 
             x509Certificates.ImportFromPem(certificateData);

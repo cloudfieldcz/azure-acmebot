@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -36,8 +37,13 @@ namespace KeyVault.Acmebot
                 return req.CreateErrorResponse(HttpStatusCode.BadRequest, $"{nameof(request.FrontDoor)} is empty.");
             }
 
+            // sort domains - shortest first
+            var domains = new string[request.Domains.Length];
+            Array.Copy(request.Domains, domains, request.Domains.Length);
+            domains = domains.OrderBy(e => e.Length).ToArray();
+
             // Function input comes from the request content.
-            var instanceId = await starter.StartNewAsync(nameof(SharedFunctions.IssueCertificate), (request.Domains, request.FrontDoor));
+            var instanceId = await starter.StartNewAsync(nameof(SharedFunctions.IssueCertificate), (domains, request.FrontDoor));
 
             log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
 
