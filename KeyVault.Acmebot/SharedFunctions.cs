@@ -308,6 +308,13 @@ namespace KeyVault.Acmebot
                     X509CertificateProperties = new X509CertificateProperties
                     {
                         SubjectAlternativeNames = new SubjectAlternativeNames(dnsNames: hostNames)
+                    },
+                    KeyProperties = new KeyProperties
+                    {
+                        Exportable = true,
+                        KeyType = "RSA",
+                        KeySize = 4096,
+                        ReuseKey = false
                     }
                 }, tags: new Dictionary<string, string>
                 {
