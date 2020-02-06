@@ -22,6 +22,11 @@ namespace KeyVault.Acmebot
 
             var frontdoors = await activity.GetAllFDoors();
 
+            frontdoors.Insert(0, new AzureFrontDoor("#NO-FD-2048#", new List<string>()));
+            frontdoors.Insert(0, new AzureFrontDoor("#NO-FD-4096#", new List<string>()));
+            frontdoors.Insert(0, new AzureFrontDoor("#NO-FD-EXP-2048#", new List<string>()));
+            frontdoors.Insert(0, new AzureFrontDoor("#NO-FD-EXP-4096#", new List<string>()));
+
             return frontdoors.ToArray();
         }
 

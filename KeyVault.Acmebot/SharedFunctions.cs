@@ -27,6 +27,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Options;
 using Microsoft.Rest.Azure;
 using Microsoft.Rest.Azure.OData;
+using Microsoft.WindowsAzure.Storage;
 
 namespace KeyVault.Acmebot
 {
@@ -144,7 +145,7 @@ namespace KeyVault.Acmebot
         [FunctionName(nameof(Dns01Precondition))]
         public async Task Dns01Precondition([ActivityTrigger] string[] hostNames)
         {
-            // Azure DNS が存在するか確認
+            // Azure DNS
             var zones = await _dnsManagementClient.Zones.ListAllAsync();
 
             foreach (var hostName in hostNames)
@@ -165,17 +166,17 @@ namespace KeyVault.Acmebot
 
             var authz = await acmeProtocolClient.GetAuthorizationDetailsAsync(authzUrl);
 
-            // DNS-01 Challenge の情報を拾う
+            // DNS-01 Challenge
             var challenge = authz.Challenges.First(x => x.Type == "dns-01");
 
             var challengeValidationDetails = AuthorizationDecoder.ResolveChallengeForDns01(authz, challenge, acmeProtocolClient.Signer);
 
-            // Azure DNS の TXT レコードを書き換え
+            // Azure DNS 
             var zone = (await _dnsManagementClient.Zones.ListAllAsync()).First(x => challengeValidationDetails.DnsRecordName.EndsWith(x.Name));
 
             var resourceGroup = ExtractResourceGroup(zone.Id);
 
-            // Challenge の詳細から Azure DNS 向けにレコード名を作成
+            // Challenge 
             var acmeDnsRecordName = challengeValidationDetails.DnsRecordName.Replace("." + zone.Name, "");
 
             RecordSet recordSet;
@@ -203,12 +204,10 @@ namespace KeyVault.Acmebot
 
                 recordSet.TTL = 60;
 
-                // 既存の TXT レコードに値を追加する
                 recordSet.TxtRecords.Add(new TxtRecord(new[] { challengeValidationDetails.DnsRecordValue }));
             }
             else
             {
-                // 新しく TXT レコードを作成する
                 recordSet = new RecordSet
                 {
                     TTL = 60,
@@ -236,20 +235,17 @@ namespace KeyVault.Acmebot
         [FunctionName(nameof(CheckDnsChallenge))]
         public async Task CheckDnsChallenge([ActivityTrigger] ChallengeResult challenge)
         {
-            // 実際に ACME の TXT レコードを引いて確認する
             var queryResult = await _lookupClient.QueryAsync(challenge.DnsRecordName, QueryType.TXT);
 
             var txtRecords = queryResult.Answers
                                         .OfType<DnsClient.Protocol.TxtRecord>()
                                         .ToArray();
 
-            // レコードが存在しなかった場合はエラー
             if (txtRecords.Length == 0)
             {
                 throw new RetriableActivityException($"{challenge.DnsRecordName} did not resolve.");
             }
 
-            // レコードに今回のチャレンジが含まれていない場合もエラー
             if (!txtRecords.Any(x => x.Text.Contains(challenge.DnsRecordValue)))
             {
                 throw new RetriableActivityException($"{challenge.DnsRecordName} value is not correct.");
@@ -265,13 +261,13 @@ namespace KeyVault.Acmebot
 
             if (orderDetails.Payload.Status == "pending")
             {
-                // pending の場合はリトライする
+                // pending 
                 throw new RetriableActivityException("ACME domain validation is pending.");
             }
 
             if (orderDetails.Payload.Status == "invalid")
             {
-                // invalid の場合は最初から実行が必要なので失敗させる
+                // invalid 
                 throw new InvalidOperationException("Invalid order status. Required retry at first.");
             }
         }
@@ -313,7 +309,7 @@ namespace KeyVault.Acmebot
                     {
                         Exportable = true,
                         KeyType = "RSA",
-                        KeySize = 4096,
+                        KeySize = (frontdoorName == "#NO-FD-2048#" || frontdoorName == "#NO-FD-EXP-2048#") ? 2048 : 4096,
                         ReuseKey = false
                     }
                 }, tags: new Dictionary<string, string>
@@ -346,6 +342,19 @@ namespace KeyVault.Acmebot
             x509Certificates.ImportFromPem(certificateData);
 
             var certBundle = await _keyVaultClient.MergeCertificateAsync(_options.VaultBaseUrl, certificateName, x509Certificates);
+
+            // export key
+            if (frontdoorName == "#NO-FD-EXP-2048#" || frontdoorName == "#NO-FD-EXP-4096#")
+            {
+                var _sec = await _keyVaultClient.GetSecretAsync(_options.VaultBaseUrl, certificateName);
+                byte[] arr = Convert.FromBase64String(_sec.Value);
+
+                await CloudStorageAccount.Parse(_options.CertBlobStoreConnString)
+                    .CreateCloudBlobClient()
+                    .GetContainerReference("certs")
+                    .GetBlockBlobReference(certificateName + ".pfx")
+                    .UploadFromByteArrayAsync(arr, 0, arr.Length);
+            }
 
             // if there is frontdoor set the certificate for each frontdoor host
             if (frontdoorName != null && frontdoorName.Length > 0)
